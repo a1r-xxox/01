@@ -1,8 +1,8 @@
---[[
-    KILASIK's PURE LIMB FLING
-    - Body stays underground (-50 studs)
-    - Only Right limb teleports to target
-    - No Chinese comments included
+--[[ 
+    STRICT PHYSICAL DECOUPLING FLING
+    - Limb is parented to workspace during attack to prevent body drag
+    - Zero body movement (Body stays at OldPos)
+    - No Chinese comments
 ]]
 
 local Players = game:GetService("Players")
@@ -10,89 +10,82 @@ local RunService = game:GetService("RunService")
 local Player = Players.LocalPlayer
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "LimbFlingGUI"
+ScreenGui.Name = "UltimateLimbFling"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = game:GetService("CoreGui")
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 300, 0, 350)
 MainFrame.Position = UDim2.new(0.5, -150, 0.5, -175)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
-local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1, 0, 0, 30)
-TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-TitleBar.Parent = MainFrame
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 1, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "STRICT LIMB FLING"
-Title.TextColor3 = Color3.fromRGB(255, 80, 80)
-Title.Font = Enum.Font.SourceSansBold
-Title.TextSize = 18
-Title.Parent = TitleBar
-
 local PlayerScrollFrame = Instance.new("ScrollingFrame")
 PlayerScrollFrame.Position = UDim2.new(0, 10, 0, 40)
 PlayerScrollFrame.Size = UDim2.new(1, -20, 0, 230)
-PlayerScrollFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+PlayerScrollFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+PlayerScrollFrame.BorderSizePixel = 0
 PlayerScrollFrame.Parent = MainFrame
 
 local StartButton = Instance.new("TextButton")
 StartButton.Position = UDim2.new(0, 10, 0, 280)
 StartButton.Size = UDim2.new(0.5, -15, 0, 40)
-StartButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-StartButton.Text = "START"
+StartButton.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+StartButton.Text = "START FLING"
 StartButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 StartButton.Parent = MainFrame
 
 local StopButton = Instance.new("TextButton")
 StopButton.Position = UDim2.new(0.5, 5, 0, 280)
 StopButton.Size = UDim2.new(0.5, -15, 0, 40)
-StopButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-StopButton.Text = "STOP"
+StopButton.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+StopButton.Text = "STOP FLING"
 StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 StopButton.Parent = MainFrame
 
 local SelectedTargets = {}
 local FlingActive = false
 
-local function StrictLimbFling(TargetPlayer)
-    local Character = Player.Character
+local function UltimateLimbFling(TargetPlayer)
+    local Char = Player.Character
     local TChar = TargetPlayer.Character
-    if not (Character and TChar) then return end
+    if not (Char and TChar) then return end
 
-    local Root = Character:FindFirstChild("HumanoidRootPart")
+    local Root = Char:FindFirstChild("HumanoidRootPart")
     local TRoot = TChar:FindFirstChild("HumanoidRootPart") or TChar:FindFirstChild("Head")
-    local Limb = Character:FindFirstChild("RightHand") or Character:FindFirstChild("Right Arm")
+    local Limb = Char:FindFirstChild("RightHand") or Char:FindFirstChild("Right Arm")
+    local Hum = Char:FindFirstChildOfClass("Humanoid")
 
-    if Limb and TRoot and Root then
+    if Limb and TRoot and Root and Hum then
         local OldCF = Root.CFrame
+        local OriginalParent = Limb.Parent
         local Joint = Limb:FindFirstChildOfClass("Motor6D") or Limb:FindFirstChild("RightShoulder")
         
-        -- 1. Detach Limb and Hide Body
+        -- 1. Total Decoupling
         if Joint then Joint.Enabled = false end
-        Root.CFrame = OldCF * CFrame.new(0, -50, 0)
-        Limb.CanCollide = true
+        Limb.Parent = workspace -- Move limb to workspace to block physics drag
+        Root.Anchored = true -- Freeze body to be 100% sure
         workspace.FallenPartsDestroyHeight = 0/0
 
         local StartTime = tick()
         while tick() - StartTime < 1.5 and FlingActive and TChar.Parent do
-            -- 2. Only Move the Limb to Target
+            -- 2. Attack Target with Limb
+            Limb.CanCollide = true
             Limb.CFrame = TRoot.CFrame * CFrame.Angles(math.rad(math.random(0,360)), math.rad(math.random(0,360)), math.rad(math.random(0,360)))
             Limb.Velocity = Vector3.new(0, 9e7, 0)
             Limb.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
             task.wait()
         end
 
-        -- 3. Reset
+        -- 3. Re-attach
+        Limb.Velocity = Vector3.new()
+        Limb.RotVelocity = Vector3.new()
+        Limb.Parent = OriginalParent
         if Joint then Joint.Enabled = true end
-        Limb.Velocity, Limb.RotVelocity = Vector3.new(), Vector3.new()
+        Root.Anchored = false
         Root.CFrame = OldCF
     end
 end
@@ -106,7 +99,8 @@ local function Refresh()
             btn.Size = UDim2.new(1, 0, 0, 30)
             btn.Position = UDim2.new(0, 0, 0, y)
             btn.Text = p.Name
-            btn.BackgroundColor3 = SelectedTargets[p.Name] and Color3.fromRGB(100, 50, 50) or Color3.fromRGB(60, 60, 60)
+            btn.BackgroundColor3 = SelectedTargets[p.Name] and Color3.fromRGB(100, 50, 50) or Color3.fromRGB(40, 40, 40)
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
             btn.Parent = PlayerScrollFrame
             btn.MouseButton1Click:Connect(function()
                 if SelectedTargets[p.Name] then SelectedTargets[p.Name] = nil else SelectedTargets[p.Name] = p end
@@ -119,13 +113,14 @@ local function Refresh()
 end
 
 StartButton.MouseButton1Click:Connect(function()
+    if FlingActive then return end
     FlingActive = true
     task.spawn(function()
         while FlingActive do
             for _, p in pairs(SelectedTargets) do
-                if FlingActive then StrictLimbFling(p) end
+                if FlingActive and p.Parent then UltimateLimbFling(p) end
             end
-            task.wait(0.2)
+            task.wait(0.1)
         end
     end)
 end)
