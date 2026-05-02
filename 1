@@ -1,0 +1,186 @@
+--[[
+    KILASIK's Limb Fling Edition (Full Logic)
+    - Dismantles right limb for Flinging while keeping the main body hidden.
+    - Automated targeting for multiple players.
+    - Compatible with R6 and R15 character models.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Player = Players.LocalPlayer
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LimbFlingGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 300, 0, 350)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -175)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 30)
+TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -30, 1, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "KILASIK'S LIMB-FLING"
+Title.TextColor3 = Color3.fromRGB(255, 80, 80)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 18
+Title.Parent = TitleBar
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Position = UDim2.new(0, 10, 0, 40)
+StatusLabel.Size = UDim2.new(1, -20, 0, 25)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Select targets"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.Font = Enum.Font.SourceSans
+StatusLabel.TextSize = 16
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = MainFrame
+
+local SelectionFrame = Instance.new("Frame")
+SelectionFrame.Position = UDim2.new(0, 10, 0, 70)
+SelectionFrame.Size = UDim2.new(1, -20, 0, 200)
+SelectionFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+SelectionFrame.BorderSizePixel = 0
+SelectionFrame.Parent = MainFrame
+
+local PlayerScrollFrame = Instance.new("ScrollingFrame")
+PlayerScrollFrame.Position = UDim2.new(0, 5, 0, 5)
+PlayerScrollFrame.Size = UDim2.new(1, -10, 1, -10)
+PlayerScrollFrame.BackgroundTransparency = 1
+PlayerScrollFrame.ScrollBarThickness = 6
+PlayerScrollFrame.Parent = SelectionFrame
+
+local StartButton = Instance.new("TextButton")
+StartButton.Position = UDim2.new(0, 10, 0, 280)
+StartButton.Size = UDim2.new(0.5, -15, 0, 40)
+StartButton.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+StartButton.Text = "START"
+StartButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+StartButton.Font = Enum.Font.SourceSansBold
+StartButton.TextSize = 18
+StartButton.Parent = MainFrame
+
+local StopButton = Instance.new("TextButton")
+StopButton.Position = UDim2.new(0.5, 5, 0, 280)
+StopButton.Size = UDim2.new(0.5, -15, 0, 40)
+StopButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+StopButton.Text = "STOP"
+StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+StopButton.Font = Enum.Font.SourceSansBold
+StopButton.TextSize = 18
+StopButton.Parent = MainFrame
+
+local SelectedTargets = {}
+local PlayerCheckboxes = {}
+local FlingActive = false
+getgenv().FPDH = workspace.FallenPartsDestroyHeight
+
+local function LimbFling(TargetPlayer)
+    local Character = Player.Character
+    local TCharacter = TargetPlayer.Character
+    if not (Character and TCharacter) then return end
+
+    local RootPart = Character:FindFirstChild("HumanoidRootPart")
+    local TRoot = TCharacter:FindFirstChild("HumanoidRootPart") or TCharacter:FindFirstChild("Head")
+    local Limb = Character:FindFirstChild("RightHand") or Character:FindFirstChild("Right Arm")
+
+    if Limb and TRoot and RootPart then
+        getgenv().OldPos = RootPart.CFrame
+        RootPart.CFrame = getgenv().OldPos * CFrame.new(0, -50, 0) 
+
+        local Joint = Limb:FindFirstChildOfClass("Motor6D") or Limb:FindFirstChild("RightShoulder")
+        if Joint then Joint.Enabled = false end
+
+        Limb.CanCollide = true
+        workspace.FallenPartsDestroyHeight = 0/0
+        
+        local BV = Instance.new("BodyVelocity")
+        BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        BV.Velocity = Vector3.new(0, 9e7, 0)
+        BV.Parent = Limb
+
+        local StartTime = tick()
+        repeat
+            if TRoot and FlingActive then
+                Limb.CFrame = TRoot.CFrame * CFrame.Angles(math.rad(math.random(0,360)), math.rad(math.random(0,360)), math.rad(math.random(0,360)))
+                Limb.Velocity = Vector3.new(0, 9e7, 0)
+                Limb.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+            end
+            task.wait()
+        until tick() - StartTime > 1.5 or not FlingActive or not TargetPlayer.Parent
+
+        BV:Destroy()
+        if Joint then Joint.Enabled = true end
+        Limb.Velocity = Vector3.new(0,0,0)
+        Limb.RotVelocity = Vector3.new(0,0,0)
+        
+        RootPart.CFrame = getgenv().OldPos
+        workspace.FallenPartsDestroyHeight = getgenv().FPDH
+    end
+end
+
+local function RefreshPlayerList()
+    for _, child in pairs(PlayerScrollFrame:GetChildren()) do child:Destroy() end
+    PlayerCheckboxes = {}
+    local yPosition = 5
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Player then
+            local Entry = Instance.new("TextButton")
+            Entry.Size = UDim2.new(1, -10, 0, 30)
+            Entry.Position = UDim2.new(0, 5, 0, yPosition)
+            Entry.BackgroundColor3 = SelectedTargets[player.Name] and Color3.fromRGB(100, 50, 50) or Color3.fromRGB(50, 50, 50)
+            Entry.Text = player.Name
+            Entry.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Entry.Parent = PlayerScrollFrame
+            
+            Entry.MouseButton1Click:Connect(function()
+                if SelectedTargets[player.Name] then
+                    SelectedTargets[player.Name] = nil
+                    Entry.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                else
+                    SelectedTargets[player.Name] = player
+                    Entry.BackgroundColor3 = Color3.fromRGB(100, 50, 50)
+                end
+            end)
+            yPosition = yPosition + 35
+        end
+    end
+    PlayerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yPosition)
+end
+
+StartButton.MouseButton1Click:Connect(function()
+    if FlingActive then return end
+    FlingActive = true
+    task.spawn(function()
+        while FlingActive do
+            for name, player in pairs(SelectedTargets) do
+                if FlingActive and player.Parent and player.Character then
+                    LimbFling(player)
+                    task.wait(0.1)
+                end
+            end
+            task.wait(0.5)
+        end
+    end)
+end)
+
+StopButton.MouseButton1Click:Connect(function()
+    FlingActive = false
+end)
+
+Players.PlayerAdded:Connect(RefreshPlayerList)
+Players.PlayerRemoving:Connect(RefreshPlayerList)
+RefreshPlayerList()
